@@ -1,0 +1,207 @@
+%{
+/**************************************************
+YACC file
+基础程序
+Date:2023/9/19
+forked SherryXiye
+**************************************************/
+#include <iostream>
+#include <map>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+using namespace std;
+
+#ifndef YYSTYPE
+#define YYSTYPE Assemble
+#endif
+
+int yylex();
+extern int yyparse();
+FILE* yyin;
+void yyerror(const char* s);
+char idStr[50];
+map<string, string> character_table;
+int basic_addr = 0;
+
+struct Assemble{
+    string addr = "";
+    string code = "";
+    int dval = 0;
+    string strval = "";
+};
+%}
+
+%token ID
+%token NUMBER
+%type expr
+%type statement
+%type statement_list
+%token ASSIGN
+%token ADD
+%token SUB
+%token MUL
+%token DIV
+%token LEFT_PRA
+%token RIGHT_PRA
+
+%right ASSIGN
+%left ADD SUB
+%left MUL DIV
+%right UMINUS
+
+%%
+
+statement_list : statement ';' { $$ . code = $1 . code ; }
+               | statement_list statement ';' { $$ . code = $1 . code + $2 . code ; }
+               ;
+
+statement : ID ASSIGN expr {
+                character_table[$1 . addr] = "okk";
+                $$ . code = $3 . code + "\nMOV EAX , " + $3 . addr + "\nMOV " + $1 . addr + ", EAX";
+                cout << $$ . code;
+            }
+          | expr {
+                $$ . code = $1 . code;
+                cout << $$ . code;
+            }
+          ;
+
+expr : expr ADD expr {
+            basic_addr = basic_addr + 1;
+            $$ . addr = "0x" + to_string(basic_addr);
+            if ($1 . code!="" && $3 . code!="")
+                $$ . code = $1 . code + '\n' + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nADD EAX , EAX ,EBX\n" + "MOV " + $$ . addr + ", EAX";
+            else if ($1 . code=="" && $3 . code=="")
+                $$ . code = "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nADD EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+            else
+                $$ . code = $1 . code + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nADD EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+        }
+      | expr SUB expr {
+    basic_addr = basic_addr + 1;
+    $$ . addr = "0x" + to_string(basic_addr);
+    if ($1 . code!="" && $3 . code!="")
+        $$ . code = $1 . code + '\n' + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nSUB EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else if ($1 . code=="" && $3 . code=="")
+        $$ . code = "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nSUB EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else
+        $$ . code = $1 . code + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nSUB EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+}
+
+      | expr MUL expr {
+    basic_addr = basic_addr + 1;
+    $$ . addr = "0x" + to_string(basic_addr);
+    if ($1 . code!="" && $3 . code!="")
+        $$ . code = $1 . code + '\n' + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nMUL EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else if ($1 . code=="" && $3 . code=="")
+        $$ . code = "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nMUL EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else
+        $$ . code = $1 . code + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nMUL EAX , EAX , EBX\n" + "MOV " + $$ . addr + ", EAX";
+}
+
+      | expr DIV expr {
+    basic_addr = basic_addr + 1;
+    $$ . addr = "0x" + to_string(basic_addr);
+    if ($1 . code!="" && $3 . code!="")
+        $$ . code = $1 . code + '\n' + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nDIV EAX , EAX ,EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else if ($1 . code=="" && $3 . code=="")
+        $$ . code = "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nDIV EAX , EAX ,EBX\n" + "MOV " + $$ . addr + ", EAX";
+    else
+        $$ . code = $1 . code + $3 . code + "\nMOV EAX , " + $1 . addr + "\nMOV EBX , " + $3 . addr + "\nDIV EAX , EAX ,EBX\n" + "MOV " + $$ . addr + ", EAX";
+}
+      | LEFT_PRA expr RIGHT_PRA {
+            $$ . addr = $2 . addr;
+            $$ . code = $2 . code;
+        }
+      | SUB expr %prec UMINUS {
+            basic_addr = basic_addr + 1;
+            $$ . addr = "0x" + to_string(basic_addr);
+            $$ . code = $2 . code + "\nMOV EAX , " + $2 . addr + "\nNEG EAX\n" + "MOV " + $$ . addr + ", EAX";
+        }
+      | NUMBER {
+            $$ . addr = to_string($1 . dval) + "D";
+        }
+      | ID {
+            $$ . addr = $1 . addr;
+            if (character_table[$1 . addr] == "")
+                $$ . code = "MOV EAX , " + to_string(0) + '\n' + "MOV " + $1 . addr + ", EAX";
+            else
+                ;
+        }
+      ;
+
+%%
+
+int yylex()
+{
+    int t;
+    while (1)
+    {
+        t = getchar();
+        if (t == ' ' || t == '\t' || t == '\n')
+            ;
+        else if (isdigit(t)) {
+            yylval.dval = 0;
+            while (isdigit(t)) {
+                yylval.dval = yylval.dval * 10 + t - '0';
+                t = getchar();
+            }
+            ungetc(t, stdin);
+            return NUMBER;
+        }
+        else if ((t >= 'a' && t <= 'z') || (t >= 'A' && t <= 'Z') || (t == '_')) {
+            int i = 0;
+            while ((t >= 'a' && t <= 'z') || (t >= 'A' && t <= 'Z') || (t == '_') || (t >= '0' && t <= '9')) {
+                idStr[i] = t;
+                t = getchar();
+                i++;
+            }
+            idStr[i] = '\0';
+            yylval.addr = idStr;
+            ungetc(t, stdin);
+            return ID;
+        }
+        else {
+            switch (t)
+            {
+                case '+':
+                    return ADD;
+                    break;
+                case '-':
+                    return SUB;
+                    break;
+                case '*':
+                    return MUL;
+                    break;
+                case '/':
+                    return DIV;
+                    break;
+                case '(':
+                    return LEFT_PRA;
+                    break;
+                case ')':
+                    return RIGHT_PRA;
+                    break;
+                case '=':
+                    return ASSIGN;
+                    break;
+                default:
+                    return t;
+            }
+        }
+    }
+}
+
+int main(void)
+{
+    yyin = stdin;
+    do {
+        yyparse();
+    } while (!feof(yyin));
+    return 0;
+}
+
+void yyerror(const char* s) {
+    fprintf(stderr, "Parse error: %s\n", s);
+    exit(1);
+}
